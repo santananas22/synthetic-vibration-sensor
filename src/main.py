@@ -1,8 +1,10 @@
+import threading
 from src.dataset import read_dataset
 from src.processor import Processor
 from src.models import Limits
+from src.cloud_sync import CloudSync
 
-dataset_path = "/home/santana/projects/synthetic-vibration-sensor/data/sample_dataset_small.csv"
+dataset_path = "./data/sample_dataset_small.csv"
 
 processor = Processor(
         sample_rate=1000,
@@ -17,5 +19,20 @@ processor = Processor(
         ),
     )
 
+sync = CloudSync(
+        db_path="data/cloud_sync.db",
+        batch_size=100,
+    )
+
+sync_thread = threading.Thread(
+    target=sync.run,
+    kwargs={"interval_seconds": 5},
+    daemon=True,
+)
+sync_thread.start()
+
 for sample in read_dataset(dataset_path):
-    print(processor.process(sample))
+    result = processor.process(sample)
+
+    if result is not None:
+        sync.enqueue(result)
